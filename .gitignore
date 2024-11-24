@@ -1,0 +1,5 @@
+*.vcproj.*.user
+*.vcxproj.user
+.build
+.vs/
+_OUT
