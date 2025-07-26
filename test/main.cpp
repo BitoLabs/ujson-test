@@ -37,6 +37,8 @@ TEST(bool, all)
 TEST(num, int)
 {
     ujson::Json  json;
+
+    // i64:
     EXPECT_EQ   (json.parse(" 42").as_int().get(),  42);
     EXPECT_EQ   (json.parse("-42").as_int().get(), -42);
     EXPECT_EQ   (json.parse(" 9223372036854775807").as_int().get(), INT64_MAX);
@@ -47,9 +49,15 @@ TEST(num, int)
     EXPECT_THROW(json.parse("- 1"), ujson::ErrSyntax); // '-' must be followed by a digit
     EXPECT_THROW(json.parse(" +1"), ujson::ErrSyntax); // '+' can't precede a number
     EXPECT_THROW(json.parse("256").as_int().get(0, 255),       ujson::ErrBadIntRange);
+
+    // i32:
     EXPECT_THROW(json.parse("256").as_int().get_i32(0, 255),   ujson::ErrBadIntRange);
-    EXPECT_EQ   (json.parse("256").as_int().get_i32(), 256);
     EXPECT_THROW(json.parse("21474836470").as_int().get_i32(), ujson::ErrBadIntRange);
+
+    // u32:
+    EXPECT_EQ   (json.parse("4294967295").as_int().get_u32(),  UINT32_MAX);
+    EXPECT_THROW(json.parse("21474836470").as_int().get_u32(), ujson::ErrBadIntRange);
+    EXPECT_THROW(json.parse("-1").as_int().get_u32(),          ujson::ErrBadIntRange);
 }
 
 TEST(num, f64)
@@ -167,6 +175,16 @@ TEST(arr, get_i32)
     EXPECT_THROW(arr.get_i32(2)        , ujson::ErrBadType);
 }
 
+TEST(arr, get_u32)
+{
+    ujson::Json json;
+    auto& arr = json.parse("[256, 21474836470, null]").as_arr();
+    EXPECT_EQ(arr.get_u32(0), 256u);
+    EXPECT_THROW(arr.get_u32(0, 0, 255), ujson::ErrBadIntRange);
+    EXPECT_THROW(arr.get_u32(1), ujson::ErrBadIntRange);
+    EXPECT_THROW(arr.get_u32(2), ujson::ErrBadType);
+}
+
 TEST(arr, get_i64)
 {
     ujson::Json json;
@@ -278,6 +296,18 @@ TEST(obj, get_i32)
     EXPECT_THROW(obj.get_i32("absent"), ujson::ErrMemberNotFound);
 }
 
+TEST(obj, get_u32)
+{
+    ujson::Json json;
+    auto& obj = json.parse(R"({"foo":42, "bar":21474836470, "baz":null})").as_obj();
+    EXPECT_EQ(obj.get_u32("foo"), 42u);
+    EXPECT_THROW(obj.get_u32("foo", 100, 200), ujson::ErrBadIntRange);
+    EXPECT_THROW(obj.get_u32("bar"), ujson::ErrBadIntRange);
+    EXPECT_THROW(obj.get_u32("baz"), ujson::ErrBadType);
+    EXPECT_EQ(obj.get_u32("absent", 1, 0, 123), 123u);
+    EXPECT_THROW(obj.get_u32("absent"), ujson::ErrMemberNotFound);
+}
+
 TEST(obj, get_i64)
 {
     ujson::Json json;
@@ -336,6 +366,21 @@ TEST(obj, get_arr)
     EXPECT_THROW(obj.get_arr("absent"), ujson::ErrMemberNotFound);
 }
 
+TEST(obj, get_arr_opt)
+{
+    ujson::Json json;
+    auto& obj = json.parse(R"({"foo":[1,2,3], "baz":null})").as_obj();
+    EXPECT_NE(obj.get_arr_opt("foo"), nullptr);
+    EXPECT_EQ(obj.get_arr_opt("absent"), nullptr);
+    EXPECT_THROW(obj.get_arr_opt("baz"), ujson::ErrBadType);
+    if (auto foo = obj.get_arr_opt("foo")) {
+        EXPECT_EQ(foo->get_len(), 3);
+    }
+    else {
+        FAIL();
+    }
+}
+
 TEST(obj, get_obj)
 {
     ujson::Json json;
@@ -343,6 +388,21 @@ TEST(obj, get_obj)
     ASSERT_EQ(obj.get_obj("foo").get_len(), 0);
     EXPECT_THROW(obj.get_obj("baz"), ujson::ErrBadType);
     EXPECT_THROW(obj.get_obj("absent"), ujson::ErrMemberNotFound);
+}
+
+TEST(obj, get_obj_opt)
+{
+    ujson::Json json;
+    auto& obj = json.parse(R"({"foo":{}, "baz":null})").as_obj();
+    EXPECT_NE(obj.get_obj_opt("foo"), nullptr);
+    EXPECT_EQ(obj.get_obj_opt("absent"), nullptr);
+    EXPECT_THROW(obj.get_obj_opt("baz"), ujson::ErrBadType);
+    if (auto foo = obj.get_obj_opt("foo")) {
+        EXPECT_EQ(foo->get_len(), 0);
+    }
+    else {
+        FAIL();
+    }
 }
 
 TEST(obj, comments)
