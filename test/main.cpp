@@ -146,6 +146,16 @@ TEST(arr, get_len)
     EXPECT_EQ(json.parse("[null, null]").as_arr().get_len(), 2);
 }
 
+TEST(arr, require_len)
+{
+    ujson::Json json;
+    EXPECT_NO_THROW(json.parse("[null, null]").as_arr().require_len(2));
+    EXPECT_NO_THROW(json.parse("[null, null]").as_arr().require_len(0, 4));
+    EXPECT_ERR     (json.parse("[null, null]").as_arr().require_len(1),    ujson::ErrBadArrLen, 1);
+    EXPECT_ERR     (json.parse("[null, null]").as_arr().require_len(0, 1), ujson::ErrBadArrLen, 1);
+    EXPECT_ERR     (json.parse("[null, null]").as_arr().require_len(4, 8), ujson::ErrBadArrLen, 1);
+}
+
 TEST(arr, get_element)
 {
     ujson::Json json;
@@ -471,6 +481,37 @@ TEST(obj, composite)
     EXPECT_EQ(color_rgb.get_i32(0, 0, 255), 0);
     EXPECT_EQ(color_rgb.get_i32(1, 0, 255), 0);
     EXPECT_EQ(color_rgb.get_i32(2, 0, 255), 255);
+}
+
+TEST(val, get_line)
+{
+    const char in_str[] =
+    R"(                   // 01
+    {                     // 02
+        "num" : 1,        // 03
+        "arr" :           // 04
+        [                 // 05
+            2,            // 06
+            {"foo":42}    // 07
+        ],                // 08
+        "obj":            // 09
+            {"foo":       // 10
+                1         // 11
+            },            // 12
+    })";
+
+    ujson::Json json;
+    const ujson::Obj& root = json.parse(in_str).as_obj();
+    auto& arr = root.get_arr("arr");
+    auto& obj = root.get_obj("obj");
+
+    EXPECT_EQ(root.get_line(), 2);
+    EXPECT_EQ(root.get_member("num")->get_line(), 3);
+    EXPECT_EQ(arr.get_line(), 5);
+    EXPECT_EQ(arr.get_element(0).get_line(), 6);
+    EXPECT_EQ(arr.get_element(1).get_line(), 7);
+    EXPECT_EQ(obj.get_line(), 10);
+    EXPECT_EQ(obj.get_member("foo")->get_line(), 11);
 }
 
 TEST(val, reject_unknown_member)
