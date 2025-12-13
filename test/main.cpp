@@ -545,7 +545,35 @@ TEST(val, reject_unknown_member)
 TEST(json, extra_text)
 {
     ujson::Json json;
-    EXPECT_THROW(json.parse("1 invalid text"), ujson::ErrSyntax);
+    EXPECT_THROW(json.parse("1 invalid text at the end"), ujson::ErrSyntax);
+}
+
+TEST(json, nested_level)
+{
+    ujson::Json json;
+    EXPECT_NO_THROW(json.parse("[[[[[[[[[[[[[[[[ ]]]]]]]]]]]]]]]]")); // 16 nested arrays must be ok
+    {
+        // Generate a string with 'n' nested arrays: [[[[ ... ]]]]
+        // Must not crash but raise ErrSyntax due to too deep nested level.
+        const size_t n = 1024;
+        std::string s(n * 2, ']');
+        s.replace(0, n, n, '[');
+        EXPECT_THROW(json.parse(s.c_str()), ujson::ErrSyntax);
+    }
+    EXPECT_NO_THROW(json.parse(R"({"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{ }}}}}}}}}}}}}}}})")); // 16 nested objects must be ok
+    {
+        // Generate a string with 'n' nested structures: {{{{ ... }}}}
+        // Must not crash but raise ErrSyntax due to too deep nested level.
+        const size_t n = 1024;
+        std::string s = "{";
+        for (size_t i = 0; i < n-1; i++) {
+            s.append(R"("a":{)");
+        }
+        for (size_t i = 0; i < n; i++) {
+            s.append("}");
+        }
+        EXPECT_THROW(json.parse(s.c_str()), ujson::ErrSyntax);
+    }
 }
 
 int main(int argc, char **argv) {
