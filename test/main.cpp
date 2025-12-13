@@ -79,8 +79,17 @@ TEST(str, plain)
 {
     ujson::Json  json;
     EXPECT_STREQ(json.parse(R"("value")").as_str().get(), "value");
-    EXPECT_STREQ(json.parse(R"("\\ \b \f \n \r \t")").as_str().get(), "\\ \b \f \n \r \t");
-    EXPECT_STREQ(json.parse("\"\\/\"").as_str().get(), "/");
+
+    // Allowed escape characters:
+    EXPECT_STREQ(json.parse("\"\\\"\"").as_str().get(), "\"");
+    EXPECT_STREQ(json.parse("\"\\\\\"").as_str().get(), "\\");
+    EXPECT_STREQ(json.parse("\"\\/\"" ).as_str().get(), "/" );
+    EXPECT_STREQ(json.parse("\"\\b\"" ).as_str().get(), "\b");
+    EXPECT_STREQ(json.parse("\"\\f\"" ).as_str().get(), "\f");
+    EXPECT_STREQ(json.parse("\"\\n\"" ).as_str().get(), "\n");
+    EXPECT_STREQ(json.parse("\"\\r\"" ).as_str().get(), "\r");
+    EXPECT_STREQ(json.parse("\"\\t\"" ).as_str().get(), "\t");
+
     EXPECT_THROW(json.parse("\"\\p\""), ujson::ErrSyntax); // bad esacpe character
     EXPECT_THROW(json.parse("\"\t\"" ), ujson::ErrSyntax); // no control characters allowed inside string
     EXPECT_THROW(json.parse("\"\n\"" ), ujson::ErrSyntax); // no control characters allowed inside string
