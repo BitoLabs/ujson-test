@@ -95,6 +95,17 @@ TEST(str, plain)
     EXPECT_THROW(json.parse("\"\n\"" ), ujson::ErrSyntax); // no control characters allowed inside string
     EXPECT_THROW(json.parse("\"\r\"" ), ujson::ErrSyntax); // no control characters allowed inside string
     EXPECT_THROW(json.parse("\"value"), ujson::ErrSyntax); // no closing quotes
+
+    // Below test could fail when comparing 'char' values as signed integers.
+    // For example:
+    //
+    //    char c = *m_next++;
+    //    if (c < ' ') {
+    //        // This may fail for c = 0x80 ... 0xFF
+    //        throw ErrSyntax("invalid string syntax: control characters not allowed", m_line_count);
+    //    }
+    //
+    EXPECT_STREQ(json.parse("\" \xF4\x8F\xBF\xBF \"").as_str().get(), " \xF4\x8F\xBF\xBF "); // non character in UTF-8 U+10FFFF
 }
 
 TEST(str, encoding)
