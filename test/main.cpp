@@ -150,12 +150,15 @@ TEST(str, enum)
 TEST(arr, syntax)
 {
     ujson::Json json;
-    EXPECT_THROW(json.parse("[1 2]"),  ujson::ErrSyntax); // no comma
-    EXPECT_THROW(json.parse("[1,,2]"), ujson::ErrSyntax); // no element between commas
-    EXPECT_THROW(json.parse("[1,2"),   ujson::ErrSyntax); // no ']'
-    EXPECT_EQ(json.parse("[1,2]").as_arr().get_len(), 2);
-    EXPECT_EQ(json.parse("[1,2,]").as_arr().get_len(), 2);  // trailing comma is ok
-    EXPECT_EQ(json.parse(" [ 1, 2 , ] ").as_arr().get_len(), 2); // whitespace is ok
+    EXPECT_THROW   (json.parse("[1 2]"),  ujson::ErrSyntax); // no comma
+    EXPECT_THROW   (json.parse("[1,,2]"), ujson::ErrSyntax); // no element between commas
+    EXPECT_THROW   (json.parse("[1,2"),   ujson::ErrSyntax); // no ']'
+    EXPECT_NO_THROW(json.parse("[1,2]"));
+    EXPECT_NO_THROW(json.parse(" [ 1, 2 ] ")); // whitespace is ok
+    // Trailing comma:
+    EXPECT_NO_THROW(json.parse("[1,2,]", 0, ujson::optTrailingComma)); // allow trailing comma
+    EXPECT_THROW   (json.parse("[1,2,]", 0, ujson::optStandard), ujson::ErrSyntax); // trailing comma not allowed by standard
+    EXPECT_THROW   (json.parse("[,]"   , 0, ujson::optTrailingComma), ujson::ErrSyntax); // trailing comma can only follow after an element
 }
 
 TEST(arr, get_len)
@@ -267,9 +270,12 @@ TEST(obj, syntax)
     EXPECT_THROW(json.parse(R"({"foo":1,,"bar":2})"), ujson::ErrSyntax); // no member between commas
     EXPECT_THROW(json.parse(R"({"foo":1,"bar":2)"),   ujson::ErrSyntax); // no '}'
     EXPECT_EQ(json.parse(R"({"foo":1,"bar":2})").as_obj().get_len(), 2);
-    EXPECT_EQ(json.parse(R"({"foo":1,"bar":2,})").as_obj().get_len(), 2);  // trailing comma is ok
     EXPECT_EQ(json.parse(R"( { "foo" : 1 , "bar" : 2 } )").as_obj().get_len(), 2); // whitespace is ok
     EXPECT_EQ(json.parse(R"({})").as_obj().get_len(), 0); // empty obj is ok
+    // Trailing comma:
+    EXPECT_NO_THROW(json.parse(R"({"foo":1,"bar":2,})", 0, ujson::optTrailingComma)); // allow trailing comma
+    EXPECT_THROW   (json.parse(R"({"foo":1,"bar":2,})", 0, ujson::optStandard),      ujson::ErrSyntax);  // trailing comma is not allowed by the standard
+    EXPECT_THROW   (json.parse(R"({,})",                0, ujson::optTrailingComma), ujson::ErrSyntax);  // trailing comma can only follow after a member
 }
 
 TEST(obj, get_member_idx)
