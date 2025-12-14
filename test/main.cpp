@@ -454,16 +454,28 @@ TEST(obj, get_obj_opt)
 
 TEST(obj, comments)
 {
-    const char in_str[] =
+    // Test with enabled comments:
+    const char in_str1[] =
     R"(// comment
     { // comment
         "foo" : 1, // comment
-        "bar" : 2, // comment
-      //"baz" : 3, // comment
+      //"bar" : 2, // comment
+        "baz" : 3  // comment
     } // comment
     )";
     ujson::Json json;
-    EXPECT_EQ(json.parse(in_str).as_obj().get_len(), 2);
+    EXPECT_EQ(json.parse(in_str1, 0, ujson::optLineCommentC).as_obj().get_len(), 2);
+    
+    // Test with disabled comments:
+    const char in_str2[] =
+    R"(
+    {
+        "foo" : 1,
+        "bar" : 2, // comment
+        "baz" : 3
+    }
+    )";
+    EXPECT_ERR(json.parse(in_str2, 0, ujson::optStandard), ujson::ErrSyntax, 4);
 }
 
 TEST(obj, composite)
@@ -484,7 +496,8 @@ TEST(obj, composite)
     })";
 
     ujson::Json json;
-    const ujson::Obj& root = json.parse(in_str).as_obj();
+    const uint32_t options = ujson::optDefault | ujson::optLineCommentC;
+    const ujson::Obj& root = json.parse(in_str, 0, options).as_obj();
 
     EXPECT_STREQ    (root.get_str("name"), "Main Window");
     EXPECT_EQ       (root.get_i32("width", 0, 16384), 640);
@@ -538,7 +551,8 @@ TEST(val, get_line)
     })";
 
     ujson::Json json;
-    const ujson::Obj& root = json.parse(in_str).as_obj();
+    const uint32_t options = ujson::optDefault | ujson::optLineCommentC;
+    const ujson::Obj& root = json.parse(in_str, 0, options).as_obj();
     auto& arr = root.get_arr("arr");
     auto& obj = root.get_obj("obj");
 
