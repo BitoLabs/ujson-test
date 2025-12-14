@@ -270,7 +270,6 @@ TEST(obj, syntax)
     EXPECT_EQ(json.parse(R"({"foo":1,"bar":2,})").as_obj().get_len(), 2);  // trailing comma is ok
     EXPECT_EQ(json.parse(R"( { "foo" : 1 , "bar" : 2 } )").as_obj().get_len(), 2); // whitespace is ok
     EXPECT_EQ(json.parse(R"({})").as_obj().get_len(), 0); // empty obj is ok
-    EXPECT_THROW(json.parse(R"({"foo":1,"foo":2})"), ujson::ErrSyntax); // duplicate member
 }
 
 TEST(obj, get_member_idx)
@@ -300,6 +299,18 @@ TEST(obj, get_member)
     EXPECT_EQ(obj.get_member("bar")->get_type(), ujson::vtNull);
     EXPECT_EQ(obj.get_member("absent", false), nullptr);
     EXPECT_THROW(obj.get_member("absent"), ujson::ErrMemberNotFound);
+}
+
+TEST(obj, duplicates)
+{
+    ujson::Json json;
+    EXPECT_THROW(json.parse(R"({"foo":1,"foo":2})"), ujson::ErrSyntax);  // duplicate member not allowed by default
+
+    auto& obj = json.parse(R"({"foo":1,"foo":2})", 0, ujson::optStandard).as_obj(); // duplicate member allowed by standard
+    EXPECT_STREQ(obj.get_member_name(0), "foo");
+    EXPECT_STREQ(obj.get_member_name(1), ""); // duplicate member has no name
+    EXPECT_EQ(obj.get_i32("foo"), 1); // first member can be accessed by name
+    EXPECT_EQ(obj.get_element(1).as_int().get_i32(), 2); // duplicate member can be only accessed by index
 }
 
 TEST(obj, get_bool)
