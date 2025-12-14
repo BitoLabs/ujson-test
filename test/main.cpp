@@ -90,7 +90,7 @@ TEST(str, plain)
     EXPECT_STREQ(json.parse("\"\\r\"" ).as_str().get(), "\r");
     EXPECT_STREQ(json.parse("\"\\t\"" ).as_str().get(), "\t");
 
-    EXPECT_THROW(json.parse("\"\\p\""), ujson::ErrSyntax); // bad esacpe character
+    EXPECT_THROW(json.parse("\"\\p\""), ujson::ErrSyntax); // bad escape character
     EXPECT_THROW(json.parse("\"\t\"" ), ujson::ErrSyntax); // no control characters allowed inside string
     EXPECT_THROW(json.parse("\"\n\"" ), ujson::ErrSyntax); // no control characters allowed inside string
     EXPECT_THROW(json.parse("\"\r\"" ), ujson::ErrSyntax); // no control characters allowed inside string
@@ -577,6 +577,35 @@ TEST(json, extra_text)
 {
     ujson::Json json;
     EXPECT_THROW(json.parse("1 invalid text at the end"), ujson::ErrSyntax);
+}
+
+TEST(json, null_char)
+{
+    ujson::Json json;
+
+    // null at the end of a valid json text
+    {
+        static const char s[] = "123\0";
+        EXPECT_THROW(json.parse(s, sizeof(s) - 1), ujson::ErrSyntax); // null not allowed before the end of the string
+        EXPECT_NO_THROW(json.parse(s, sizeof(s) - 2)); // null is OK a the end of the string
+    }
+    // null in the middle of a json text
+    {
+        static const char s[] = "[\0]";
+        EXPECT_THROW(json.parse(s, sizeof(s) - 1), ujson::ErrSyntax);
+    }
+    {
+        static const char s[] = "[123\0]";
+        EXPECT_THROW(json.parse(s, sizeof(s) - 1), ujson::ErrSyntax);
+    }
+    {
+        static const char s[] = "{\0}";
+        EXPECT_THROW(json.parse(s, sizeof(s) - 1), ujson::ErrSyntax);
+    }
+    {
+        static const char s[] = "\"\0\"";
+        EXPECT_THROW(json.parse(s, sizeof(s) - 1), ujson::ErrSyntax);
+    }
 }
 
 TEST(json, nested_level)
