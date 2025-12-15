@@ -73,6 +73,7 @@ TEST(num, f64)
     EXPECT_THROW    (json.parse(" 42.0"  ).as_f64().get(100.0, 200.0), ujson::ErrBadF64Range);
     EXPECT_THROW    (json.parse(" 00.42"    ), ujson::ErrSyntax); // a number can't start with 0 if it is followed by another digit
     EXPECT_THROW    (json.parse("1e99999999"), ujson::ErrSyntax); // number too huge
+    EXPECT_THROW    (json.parse("  1.e3", 0, ujson::optStandard), ujson::ErrSyntax); // empty fractions not allowed by JSON standard
 }
 
 TEST(str, plain)
