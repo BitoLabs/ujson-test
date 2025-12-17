@@ -60,6 +60,19 @@ TEST(num, int)
     EXPECT_THROW(json.parse("-1").as_int().get_u32(),          ujson::ErrBadIntRange);
 }
 
+TEST(num, hex)
+{
+    ujson::Json  json;
+    EXPECT_EQ   (json.parse(" 0xab", 0, ujson::optHex).as_int().get(),  0xAB);
+    EXPECT_EQ   (json.parse(" 0XAB", 0, ujson::optHex).as_int().get(),  0xAB);
+    EXPECT_EQ   (json.parse("-0xAB", 0, ujson::optHex).as_int().get(), -0xAB);
+    EXPECT_EQ   (json.parse(" 0x0123456701234567", 0, ujson::optHex).as_int().get(),  0x0123456701234567);
+    EXPECT_EQ   (json.parse("-0x0123456701234567", 0, ujson::optHex).as_int().get(), -0x0123456701234567);
+    EXPECT_EQ   (json.parse(" 0xFFFFFFFFFFFFFFFF", 0, ujson::optHex).as_int().get(), -1);
+    EXPECT_EQ   (json.parse("-0xFFFFFFFFFFFFFFFF", 0, ujson::optHex).as_int().get(),  1);
+    EXPECT_THROW(json.parse("0x10000000000000000", 0, ujson::optHex), ujson::ErrSyntax); // doesn't fit in 64 bit
+}
+
 TEST(num, f64)
 {
     ujson::Json      json;
