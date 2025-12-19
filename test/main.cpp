@@ -466,6 +466,17 @@ TEST(obj, get_obj_opt)
     }
 }
 
+TEST(obj, identifiers)
+{
+    ujson::Json json;
+    auto& obj = json.parse(R"({foo: 1, "bar": 2})", 0, ujson::optIdentifiers).as_obj();
+    EXPECT_EQ(obj.get_i32("foo"), 1);
+    EXPECT_EQ(obj.get_i32("bar"), 2);
+    EXPECT_THROW(json.parse(R"({foo : 1})"), ujson::ErrSyntax);
+    EXPECT_THROW(json.parse(R"({foo%: 1})", 0, ujson::optIdentifiers), ujson::ErrSyntax);
+    EXPECT_THROW(json.parse(R"({0foo: 1})", 0, ujson::optIdentifiers), ujson::ErrSyntax);
+}
+
 TEST(obj, comments)
 {
     // Test with enabled comments:
