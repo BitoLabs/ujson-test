@@ -7,19 +7,20 @@ name: MSBuild
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
   workflow_dispatch:
 
 env:
   # Path to the solution file relative to the root of the project.
-  SOLUTION_FILE_PATH: .
+  SOLUTION_FILE_PATH: test/ujson-test.sln
 
   # Configuration type to build.
   # You can convert this to a build matrix if you need coverage of multiple configuration types.
   # https://docs.github.com/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
   BUILD_CONFIGURATION: Release
+  PLATFORM: x64
 
 permissions:
   contents: read
@@ -29,17 +30,30 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v4
-
+    - name: Checkout repository (with submodules)
+      uses: actions/checkout@v4
+      with:
+        # fetch submodules (recursively) so ../ujson exists for the project
+        submodules: 'recursive'
+        # ensure full history for submodules if needed
+        fetch-depth: 0
+        # use the default token so private submodules from the same host are fetched
+        token: ${{ secrets.GITHUB_TOKEN }}
+ 
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v1.0.2
 
-    - name: Restore NuGet packages
-      working-directory: ${{env.GITHUB_WORKSPACE}}
-      run: nuget restore ${{env.SOLUTION_FILE_PATH}}
+    #- name: Restore NuGet packages
+    #  working-directory: ${{env.GITHUB_WORKSPACE}}
+    #  run: nuget restore ${{env.SOLUTION_FILE_PATH}}
 
     - name: Build
       working-directory: ${{env.GITHUB_WORKSPACE}}
       # Add additional options to the MSBuild command line here (like platform or verbosity level).
       # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
-      run: msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} ${{env.SOLUTION_FILE_PATH}}
+      run: msbuild ${{ env.SOLUTION_FILE_PATH }} /m /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform=${{ env.PLATFORM }}
+
+    - name: Run the test
+      # Runs the executable and fails the job if it returns non-zero.
+      working-directory: test/_OUT/${{ env.PLATFORM }}/${{ env.BUILD_CONFIGURATION }}
+      run: .\ujson-test.exe
