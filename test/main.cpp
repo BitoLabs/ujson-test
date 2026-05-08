@@ -606,16 +606,16 @@ TEST(val, reject_unknown_member)
     const ujson::Obj& root = json.parse(in_str).as_obj();
 
     root.get_obj("ignore").ignore_members();
-    EXPECT_ERR(root.reject_unknow_members(), ujson::ErrUnknownMember, 2);
+    EXPECT_ERR(root.reject_unknown_members(), ujson::ErrUnknownMember, 2);
 
     root.get_i32("num");
-    EXPECT_ERR(root.reject_unknow_members(), ujson::ErrUnknownMember, 3);
+    EXPECT_ERR(root.reject_unknown_members(), ujson::ErrUnknownMember, 3);
 
     auto& arr = root.get_arr("arr");
-    EXPECT_ERR(root.reject_unknow_members(), ujson::ErrUnknownMember, 5);
+    EXPECT_ERR(root.reject_unknown_members(), ujson::ErrUnknownMember, 5);
 
     arr.get_obj(1).get_i32("foo");
-    EXPECT_NO_THROW(root.reject_unknow_members());
+    EXPECT_NO_THROW(root.reject_unknown_members());
 }
 
 TEST(json, extra_text)
