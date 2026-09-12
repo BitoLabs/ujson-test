@@ -315,9 +315,11 @@ TEST(obj, get_member)
 {
     ujson::Json json;
     auto obj = json.parse(R"({"foo":1, "bar":null})").as_obj();
-    EXPECT_EQ(obj.get_member("foo")->get_type(), ujson::vtInt);
-    EXPECT_EQ(obj.get_member("bar")->get_type(), ujson::vtNull);
-    EXPECT_EQ(bool(obj.get_member("absent", false)), false);
+    EXPECT_EQ(obj.get_member("foo").get_type(), ujson::vtInt);
+    EXPECT_EQ(obj.get_member("bar").get_type(), ujson::vtNull);
+    EXPECT_EQ(obj.get_member("absent", false).get_type(), ujson::vtNone);
+    EXPECT_FALSE(obj.get_member("absent", false).has_value());
+    EXPECT_FALSE(bool(obj.get_member("absent", false)));
     EXPECT_THROW(obj.get_member("absent"), ujson::ErrMemberNotFound);
 }
 
@@ -582,12 +584,12 @@ TEST(val, get_line)
     auto obj = root.get_obj("obj");
 
     EXPECT_EQ(root.get_line(), 2);
-    EXPECT_EQ(root.get_member("num")->get_line(), 3);
+    EXPECT_EQ(root.get_member("num").get_line(), 3);
     EXPECT_EQ(arr.get_line(), 5);
     EXPECT_EQ(arr.get_element(0).get_line(), 6);
     EXPECT_EQ(arr.get_element(1).get_line(), 7);
     EXPECT_EQ(obj.get_line(), 10);
-    EXPECT_EQ(obj.get_member("foo")->get_line(), 11);
+    EXPECT_EQ(obj.get_member("foo").get_line(), 11);
 }
 
 TEST(val, reject_unknown_member)
