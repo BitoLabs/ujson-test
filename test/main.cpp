@@ -469,12 +469,13 @@ TEST(obj, get_obj)
 TEST(obj, get_obj_opt)
 {
     ujson::Json json;
-    auto obj = json.parse(R"({"foo":{}, "baz":null})").as_obj();
+    auto obj = json.parse(R"({"foo":{"val":42}, "baz":null})").as_obj();
     EXPECT_EQ(bool(obj.get_obj_opt("foo")), true);
     EXPECT_EQ(bool(obj.get_obj_opt("absent")), false);
     EXPECT_THROW(obj.get_obj_opt("baz"), ujson::ErrBadType);
     if (auto foo = obj.get_obj_opt("foo")) {
-        EXPECT_TRUE(foo.has_value());
+        EXPECT_STREQ(foo.get_name(), "foo");
+        EXPECT_EQ(foo.get_i32("val"), 42);
     }
     else {
         FAIL();
