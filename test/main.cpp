@@ -277,6 +277,14 @@ TEST(arr, get_obj)
     EXPECT_THROW(arr.get_obj(1), ujson::ErrBadType);
 }
 
+TEST(arr, null)
+{
+    ujson::Json json;
+    auto arr = ujson::Arr(nullptr);
+    EXPECT_EQ(arr.get_len(), 0);
+    EXPECT_THROW(arr.get_element(1), std::out_of_range);
+}
+
 TEST(obj, syntax)
 {
     ujson::Json json;
@@ -560,6 +568,19 @@ TEST(obj, composite)
     EXPECT_EQ(color_rgb.get_i32(0, 0, 255), 0);
     EXPECT_EQ(color_rgb.get_i32(1, 0, 255), 0);
     EXPECT_EQ(color_rgb.get_i32(2, 0, 255), 255);
+}
+
+TEST(val, null)
+{
+    auto val = ujson::Val(nullptr);
+    EXPECT_FALSE(val.has_value());
+    EXPECT_EQ(val.get_type(), ujson::vtNone);
+    EXPECT_EQ(val.get_idx(), -1);
+    EXPECT_STREQ(val.get_name(), "");
+    EXPECT_EQ(val.get_line(), 0);
+    EXPECT_FALSE(val.is_num());
+    EXPECT_NO_THROW(val.reject_unknown_members());
+    EXPECT_NO_THROW(val.ignore_members());
 }
 
 TEST(val, get_line)
