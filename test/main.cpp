@@ -282,7 +282,8 @@ TEST(arr, null)
     ujson::Json json;
     auto arr = ujson::Arr(nullptr);
     EXPECT_EQ(arr.get_len(), 0);
-    EXPECT_THROW(arr.get_element(1), std::out_of_range);
+    EXPECT_THROW(arr.get_element(0), std::out_of_range);
+    EXPECT_THROW(arr.get_bool(0), std::out_of_range);
 }
 
 TEST(obj, syntax)
@@ -568,6 +569,17 @@ TEST(obj, composite)
     EXPECT_EQ(color_rgb.get_i32(0, 0, 255), 0);
     EXPECT_EQ(color_rgb.get_i32(1, 0, 255), 0);
     EXPECT_EQ(color_rgb.get_i32(2, 0, 255), 255);
+}
+
+TEST(obj, null)
+{
+    auto obj = ujson::Obj(nullptr);
+    EXPECT_EQ(obj.get_member_idx("absent", false), -1);
+    EXPECT_THROW(obj.get_member_idx("absent", true), ujson::ErrMemberNotFound);
+    EXPECT_THROW(obj.get_member_name(0), std::out_of_range);
+    EXPECT_THROW(obj.get_member("absent"), ujson::ErrMemberNotFound);
+    EXPECT_FALSE(obj.get_member_opt("absent").has_value());
+    EXPECT_THROW(obj.get_bool("absent"), ujson::ErrMemberNotFound);
 }
 
 TEST(val, null)
