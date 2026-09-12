@@ -283,6 +283,8 @@ TEST(arr, null)
     auto arr = ujson::Arr(nullptr);
     EXPECT_EQ(arr.get_len(), 0);
     EXPECT_THROW(arr.get_element(0), std::out_of_range);
+    EXPECT_NO_THROW(arr.require_len(0, 0));
+    EXPECT_THROW(arr.require_len(1), ujson::ErrBadArrLen);
     EXPECT_THROW(arr.get_bool(0), std::out_of_range);
 }
 
@@ -448,7 +450,7 @@ TEST(obj, get_arr_opt)
     EXPECT_EQ(bool(obj.get_arr_opt("absent")), false);
     EXPECT_THROW(obj.get_arr_opt("baz"), ujson::ErrBadType);
     if (auto foo = obj.get_arr_opt("foo")) {
-        EXPECT_EQ(foo->get_len(), 3);
+        EXPECT_EQ(foo.get_len(), 3);
     }
     else {
         FAIL();
@@ -472,7 +474,7 @@ TEST(obj, get_obj_opt)
     EXPECT_EQ(bool(obj.get_obj_opt("absent")), false);
     EXPECT_THROW(obj.get_obj_opt("baz"), ujson::ErrBadType);
     if (auto foo = obj.get_obj_opt("foo")) {
-        EXPECT_EQ(foo->get_len(), 0);
+        EXPECT_TRUE(foo.has_value());
     }
     else {
         FAIL();
