@@ -315,12 +315,14 @@ TEST(obj, get_member)
 {
     ujson::Json json;
     auto obj = json.parse(R"({"foo":1, "bar":null})").as_obj();
-    EXPECT_EQ(obj.get_member("foo").get_type(), ujson::vtInt);
-    EXPECT_EQ(obj.get_member("bar").get_type(), ujson::vtNull);
-    EXPECT_EQ(obj.get_member("absent", false).get_type(), ujson::vtNone);
-    EXPECT_FALSE(obj.get_member("absent", false).has_value());
-    EXPECT_FALSE(bool(obj.get_member("absent", false)));
-    EXPECT_THROW(obj.get_member("absent"), ujson::ErrMemberNotFound);
+    EXPECT_EQ   (obj.get_member    ("foo").get_type(), ujson::vtInt);
+    EXPECT_TRUE (obj.get_member_opt("foo").has_value());
+    EXPECT_TRUE (obj.get_member_opt("foo"));
+    EXPECT_EQ   (obj.get_member    ("bar").get_type(), ujson::vtNull);
+    EXPECT_EQ   (obj.get_member_opt("absent").get_type(), ujson::vtNone);
+    EXPECT_FALSE(obj.get_member_opt("absent").has_value());
+    EXPECT_FALSE(obj.get_member_opt("absent"));
+    EXPECT_THROW(obj.get_member    ("absent"), ujson::ErrMemberNotFound);
 }
 
 TEST(obj, duplicates)
