@@ -2,6 +2,9 @@
 #include "gtest/gtest.h"
 #include <cstdint>
 #include <array>
+#include <utility>  // for std::move
+#include <vector>   // for std::vector
+#include <tuple>  // for std::ignore
 
 #define EXPECT_ERR(statement, _Err, _line)                                \
     do {                                                                  \
@@ -70,6 +73,7 @@ TEST(num, hex)
     EXPECT_EQ   (json.parse("-0x0123456701234567", 0, ujson::optHex).as_int().get(), -0x0123456701234567);
     EXPECT_EQ   (json.parse(" 0xFFFFFFFFFFFFFFFF", 0, ujson::optHex).as_int().get(), -1);
     EXPECT_EQ   (json.parse("-0xFFFFFFFFFFFFFFFF", 0, ujson::optHex).as_int().get(),  1);
+    EXPECT_EQ   (json.parse("-0x8000000000000000", 0, ujson::optHex).as_int().get(), INT64_MIN); // expect a wrap-around negation
     EXPECT_THROW(json.parse("0x10000000000000000", 0, ujson::optHex), ujson::ErrSyntax); // doesn't fit in 64 bit
 }
 
@@ -110,7 +114,7 @@ TEST(str, plain)
     EXPECT_THROW(json.parse("\"\r\"" ), ujson::ErrSyntax); // no control characters allowed inside string
     EXPECT_THROW(json.parse("\"value"), ujson::ErrSyntax); // no closing quotes
 
-    // Below test could fail when comparing 'char' values as signed integers.
+    // Bellow test guards against comparing string bytes as a signed 'char'.
     // For example:
     //
     //    char c = *m_next++;
@@ -196,7 +200,7 @@ TEST(arr, require_len)
 TEST(arr, get_element)
 {
     ujson::Json json;
-    auto& arr = json.parse("[null, false]").as_arr();
+    auto arr = json.parse("[null, false]").as_arr();
     ASSERT_EQ(arr.get_len(), 2);
     EXPECT_EQ(arr.get_element(0).get_type(), ujson::vtNull);
     EXPECT_EQ(arr.get_element(1).get_type(), ujson::vtBool);
@@ -206,7 +210,7 @@ TEST(arr, get_element)
 TEST(arr, get_bool)
 {
     ujson::Json json;
-    auto& arr = json.parse("[false,true,null]").as_arr();
+    auto arr = json.parse("[false,true,null]").as_arr();
     EXPECT_EQ(arr.get_bool(0), false);
     EXPECT_EQ(arr.get_bool(1), true);
     EXPECT_THROW(arr.get_bool(2), ujson::ErrBadType);
@@ -215,7 +219,7 @@ TEST(arr, get_bool)
 TEST(arr, get_i32)
 {
     ujson::Json json;
-    auto& arr = json.parse("[256, 21474836470, null]").as_arr();
+    auto arr = json.parse("[256, 21474836470, null]").as_arr();
     EXPECT_EQ   (arr.get_i32(0), 256);
     EXPECT_THROW(arr.get_i32(0, 0, 255), ujson::ErrBadIntRange);
     EXPECT_THROW(arr.get_i32(1)        , ujson::ErrBadIntRange);
@@ -225,7 +229,7 @@ TEST(arr, get_i32)
 TEST(arr, get_u32)
 {
     ujson::Json json;
-    auto& arr = json.parse("[256, 21474836470, null]").as_arr();
+    auto arr = json.parse("[256, 21474836470, null]").as_arr();
     EXPECT_EQ(arr.get_u32(0), 256u);
     EXPECT_THROW(arr.get_u32(0, 0, 255), ujson::ErrBadIntRange);
     EXPECT_THROW(arr.get_u32(1), ujson::ErrBadIntRange);
@@ -235,7 +239,7 @@ TEST(arr, get_u32)
 TEST(arr, get_i64)
 {
     ujson::Json json;
-    auto& arr = json.parse("[256, 21474836470, null]").as_arr();
+    auto arr = json.parse("[256, 21474836470, null]").as_arr();
     EXPECT_EQ   (arr.get_i64(0), 256);
     EXPECT_THROW(arr.get_i64(0, 0, 255), ujson::ErrBadIntRange);
     EXPECT_EQ   (arr.get_i64(1), 21474836470);
@@ -245,7 +249,7 @@ TEST(arr, get_i64)
 TEST(arr, get_f64)
 {
     ujson::Json json;
-    auto& arr = json.parse("[3.14, 42, null]").as_arr();
+    auto arr = json.parse("[3.14, 42, null]").as_arr();
     EXPECT_DOUBLE_EQ(arr.get_f64(0), 3.14);
     EXPECT_THROW(arr.get_f64(0, 10, 100), ujson::ErrBadF64Range);
     EXPECT_DOUBLE_EQ(arr.get_f64(1), 42);
@@ -255,7 +259,7 @@ TEST(arr, get_f64)
 TEST(arr, get_str)
 {
     ujson::Json json;
-    auto& arr = json.parse(R"(["one","two",null])").as_arr();
+    auto arr = json.parse(R"(["one","two",null])").as_arr();
     EXPECT_STREQ(arr.get_str(0), "one");
     EXPECT_STREQ(arr.get_str(1), "two");
     EXPECT_THROW(arr.get_str(2), ujson::ErrBadType);
@@ -264,7 +268,7 @@ TEST(arr, get_str)
 TEST(arr, get_arr)
 {
     ujson::Json json;
-    auto& arr = json.parse("[[1, 2, 3], null]").as_arr();
+    auto arr = json.parse("[[1, 2, 3], null]").as_arr();
     ASSERT_EQ(arr.get_arr(0).get_len(), 3);
     EXPECT_THROW(arr.get_arr(1), ujson::ErrBadType);
 }
@@ -272,9 +276,20 @@ TEST(arr, get_arr)
 TEST(arr, get_obj)
 {
     ujson::Json json;
-    auto& arr = json.parse("[{}, null]").as_arr();
+    auto arr = json.parse("[{}, null]").as_arr();
     ASSERT_EQ(arr.get_obj(0).get_len(), 0);
     EXPECT_THROW(arr.get_obj(1), ujson::ErrBadType);
+}
+
+TEST(arr, null)
+{
+    ujson::Json json;
+    auto arr = ujson::Arr(nullptr);
+    EXPECT_EQ(arr.get_len(), 0);
+    EXPECT_THROW(arr.get_element(0), std::out_of_range);
+    EXPECT_NO_THROW(arr.require_len(0, 0));
+    EXPECT_THROW(arr.require_len(1), ujson::ErrBadArrLen);
+    EXPECT_THROW(arr.get_bool(0), std::out_of_range);
 }
 
 TEST(obj, syntax)
@@ -295,7 +310,7 @@ TEST(obj, syntax)
 TEST(obj, get_member_idx)
 {
     ujson::Json json;
-    auto& obj = json.parse(R"({"foo":1, "bar":2})").as_obj();
+    auto obj = json.parse(R"({"foo":1, "bar":2})").as_obj();
     EXPECT_EQ(obj.get_member_idx("foo"), 0);
     EXPECT_EQ(obj.get_member_idx("bar"), 1);
     EXPECT_EQ(obj.get_member_idx("absent", false), -1);
@@ -305,7 +320,7 @@ TEST(obj, get_member_idx)
 TEST(obj, get_member_name)
 {
     ujson::Json json;
-    auto& obj = json.parse(R"({"foo":1, "bar":2})").as_obj();
+    auto obj = json.parse(R"({"foo":1, "bar":2})").as_obj();
     EXPECT_STREQ(obj.get_member_name(0), "foo");
     EXPECT_STREQ(obj.get_member_name(1), "bar");
     EXPECT_THROW(obj.get_member_name(100), std::out_of_range);
@@ -314,11 +329,15 @@ TEST(obj, get_member_name)
 TEST(obj, get_member)
 {
     ujson::Json json;
-    auto& obj = json.parse(R"({"foo":1, "bar":null})").as_obj();
-    EXPECT_EQ(obj.get_member("foo")->get_type(), ujson::vtInt);
-    EXPECT_EQ(obj.get_member("bar")->get_type(), ujson::vtNull);
-    EXPECT_EQ(obj.get_member("absent", false), nullptr);
-    EXPECT_THROW(obj.get_member("absent"), ujson::ErrMemberNotFound);
+    auto obj = json.parse(R"({"foo":1, "bar":null})").as_obj();
+    EXPECT_EQ   (obj.get_member    ("foo").get_type(), ujson::vtInt);
+    EXPECT_TRUE (obj.get_member_opt("foo").has_value());
+    EXPECT_TRUE (obj.get_member_opt("foo"));
+    EXPECT_EQ   (obj.get_member    ("bar").get_type(), ujson::vtNull);
+    EXPECT_EQ   (obj.get_member_opt("absent").get_type(), ujson::vtNone);
+    EXPECT_FALSE(obj.get_member_opt("absent").has_value());
+    EXPECT_FALSE(obj.get_member_opt("absent"));
+    EXPECT_THROW(obj.get_member    ("absent"), ujson::ErrMemberNotFound);
 }
 
 TEST(obj, duplicates)
@@ -326,7 +345,7 @@ TEST(obj, duplicates)
     ujson::Json json;
     EXPECT_THROW(json.parse(R"({"foo":1,"foo":2})"), ujson::ErrSyntax);  // duplicate member not allowed by default
 
-    auto& obj = json.parse(R"({"foo":1,"foo":2})", 0, ujson::optStandard).as_obj(); // duplicate member allowed by standard
+    auto obj = json.parse(R"({"foo":1,"foo":2})", 0, ujson::optStandard).as_obj(); // duplicate member allowed by standard
     EXPECT_STREQ(obj.get_member_name(0), "foo");
     EXPECT_STREQ(obj.get_member_name(1), ""); // duplicate member has no name
     EXPECT_EQ(obj.get_i32("foo"), 1); // first member can be accessed by name
@@ -336,7 +355,7 @@ TEST(obj, duplicates)
 TEST(obj, get_bool)
 {
     ujson::Json json;
-    auto& obj = json.parse(R"({"foo":false, "bar":true, "baz":null})").as_obj();
+    auto obj = json.parse(R"({"foo":false, "bar":true, "baz":null})").as_obj();
     EXPECT_EQ(obj.get_bool("foo"), false);
     EXPECT_EQ(obj.get_bool("bar"), true);
     EXPECT_THROW(obj.get_bool("baz"), ujson::ErrBadType);
@@ -348,7 +367,7 @@ TEST(obj, get_bool)
 TEST(obj, get_i32)
 {
     ujson::Json json;
-    auto& obj = json.parse(R"({"foo":42, "bar":21474836470, "baz":null})").as_obj();
+    auto obj = json.parse(R"({"foo":42, "bar":21474836470, "baz":null})").as_obj();
     EXPECT_EQ(obj.get_i32("foo"), 42);
     EXPECT_THROW(obj.get_i32("foo", 100, 200), ujson::ErrBadIntRange);
     EXPECT_THROW(obj.get_i32("bar"), ujson::ErrBadIntRange);
@@ -360,7 +379,7 @@ TEST(obj, get_i32)
 TEST(obj, get_u32)
 {
     ujson::Json json;
-    auto& obj = json.parse(R"({"foo":42, "bar":21474836470, "baz":null})").as_obj();
+    auto obj = json.parse(R"({"foo":42, "bar":21474836470, "baz":null})").as_obj();
     EXPECT_EQ(obj.get_u32("foo"), 42u);
     EXPECT_THROW(obj.get_u32("foo", 100, 200), ujson::ErrBadIntRange);
     EXPECT_THROW(obj.get_u32("bar"), ujson::ErrBadIntRange);
@@ -372,7 +391,7 @@ TEST(obj, get_u32)
 TEST(obj, get_i64)
 {
     ujson::Json json;
-    auto& obj = json.parse(R"({"foo":42, "bar":21474836470, "baz":null})").as_obj();
+    auto obj = json.parse(R"({"foo":42, "bar":21474836470, "baz":null})").as_obj();
     EXPECT_EQ(obj.get_i64("foo"), 42);
     EXPECT_THROW(obj.get_i64("foo", 100, 200), ujson::ErrBadIntRange);
     EXPECT_EQ(obj.get_i64("bar"), 21474836470);
@@ -384,7 +403,7 @@ TEST(obj, get_i64)
 TEST(obj, get_f64)
 {
     ujson::Json json;
-    auto& obj = json.parse(R"({"foo":3.14, "bar":42, "baz":null})").as_obj();
+    auto obj = json.parse(R"({"foo":3.14, "bar":42, "baz":null})").as_obj();
     EXPECT_DOUBLE_EQ(obj.get_f64("foo"), 3.14);
     EXPECT_THROW(obj.get_f64("foo", 100, 200), ujson::ErrBadF64Range);
     EXPECT_DOUBLE_EQ(obj.get_f64("bar"), 42);
@@ -396,7 +415,7 @@ TEST(obj, get_f64)
 TEST(obj, get_str)
 {
     ujson::Json json;
-    auto& obj = json.parse(R"({"foo":"one", "bar":"two", "baz":null})").as_obj();
+    auto obj = json.parse(R"({"foo":"one", "bar":"two", "baz":null})").as_obj();
     EXPECT_STREQ(obj.get_str("foo"), "one");
     EXPECT_STREQ(obj.get_str("bar"), "two");
     EXPECT_THROW(obj.get_str("baz"), ujson::ErrBadType);
@@ -411,7 +430,7 @@ TEST(obj, str_enum)
     const std::array val_set{red, green, blue};
 
     ujson::Json json;
-    auto& obj = json.parse(R"({"foo": "green", "bar": "yellow"})").as_obj();
+    auto obj = json.parse(R"({"foo": "green", "bar": "yellow"})").as_obj();
     EXPECT_EQ(green, obj.get_str_enum("foo", str_set, val_set));
     EXPECT_EQ(green, obj.get_str_enum("baz", str_set, val_set, green));
     EXPECT_THROW(    obj.get_str_enum("bar", str_set, val_set), ujson::ErrBadEnum);
@@ -421,7 +440,7 @@ TEST(obj, str_enum)
 TEST(obj, get_arr)
 {
     ujson::Json json;
-    auto& obj = json.parse(R"({"foo":[1,2,3], "baz":null})").as_obj();
+    auto obj = json.parse(R"({"foo":[1,2,3], "baz":null})").as_obj();
     ASSERT_EQ(obj.get_arr("foo").get_len(), 3);
     EXPECT_THROW(obj.get_arr("baz"), ujson::ErrBadType);
     EXPECT_THROW(obj.get_arr("absent"), ujson::ErrMemberNotFound);
@@ -430,12 +449,12 @@ TEST(obj, get_arr)
 TEST(obj, get_arr_opt)
 {
     ujson::Json json;
-    auto& obj = json.parse(R"({"foo":[1,2,3], "baz":null})").as_obj();
-    EXPECT_NE(obj.get_arr_opt("foo"), nullptr);
-    EXPECT_EQ(obj.get_arr_opt("absent"), nullptr);
+    auto obj = json.parse(R"({"foo":[1,2,3], "baz":null})").as_obj();
+    EXPECT_EQ(bool(obj.get_arr_opt("foo")), true);
+    EXPECT_EQ(bool(obj.get_arr_opt("absent")), false);
     EXPECT_THROW(obj.get_arr_opt("baz"), ujson::ErrBadType);
     if (auto foo = obj.get_arr_opt("foo")) {
-        EXPECT_EQ(foo->get_len(), 3);
+        EXPECT_EQ(foo.get_len(), 3);
     }
     else {
         FAIL();
@@ -445,7 +464,7 @@ TEST(obj, get_arr_opt)
 TEST(obj, get_obj)
 {
     ujson::Json json;
-    auto& obj = json.parse(R"({"foo":{}, "baz":null})").as_obj();
+    auto obj = json.parse(R"({"foo":{}, "baz":null})").as_obj();
     ASSERT_EQ(obj.get_obj("foo").get_len(), 0);
     EXPECT_THROW(obj.get_obj("baz"), ujson::ErrBadType);
     EXPECT_THROW(obj.get_obj("absent"), ujson::ErrMemberNotFound);
@@ -454,12 +473,13 @@ TEST(obj, get_obj)
 TEST(obj, get_obj_opt)
 {
     ujson::Json json;
-    auto& obj = json.parse(R"({"foo":{}, "baz":null})").as_obj();
-    EXPECT_NE(obj.get_obj_opt("foo"), nullptr);
-    EXPECT_EQ(obj.get_obj_opt("absent"), nullptr);
+    auto obj = json.parse(R"({"foo":{"val":42}, "baz":null})").as_obj();
+    EXPECT_EQ(bool(obj.get_obj_opt("foo")), true);
+    EXPECT_EQ(bool(obj.get_obj_opt("absent")), false);
     EXPECT_THROW(obj.get_obj_opt("baz"), ujson::ErrBadType);
     if (auto foo = obj.get_obj_opt("foo")) {
-        EXPECT_EQ(foo->get_len(), 0);
+        EXPECT_STREQ(foo.get_name(), "foo");
+        EXPECT_EQ(foo.get_i32("val"), 42);
     }
     else {
         FAIL();
@@ -469,7 +489,7 @@ TEST(obj, get_obj_opt)
 TEST(obj, identifiers)
 {
     ujson::Json json;
-    auto& obj = json.parse(R"({foo: 1, "bar": 2})", 0, ujson::optIdentifiers).as_obj();
+    auto obj = json.parse(R"({foo: 1, "bar": 2})", 0, ujson::optIdentifiers).as_obj();
     EXPECT_EQ(obj.get_i32("foo"), 1);
     EXPECT_EQ(obj.get_i32("bar"), 2);
     EXPECT_THROW(json.parse(R"({foo : 1})"), ujson::ErrSyntax);
@@ -522,7 +542,7 @@ TEST(obj, composite)
 
     ujson::Json json;
     const uint32_t options = ujson::optDefault | ujson::optLineCommentC;
-    const ujson::Obj& root = json.parse(in_str, 0, options).as_obj();
+    const ujson::Obj root = json.parse(in_str, 0, options).as_obj();
 
     EXPECT_STREQ    (root.get_str("name"), "Main Window");
     EXPECT_EQ       (root.get_i32("width", 0, 16384), 640);
@@ -530,32 +550,56 @@ TEST(obj, composite)
     EXPECT_DOUBLE_EQ(root.get_f64("opacity", 0.0, 1.0, 1.0), 0.9);
 
     // menu
-    const ujson::Arr& menu = root.get_arr("menu");
+    const ujson::Arr menu = root.get_arr("menu");
     ASSERT_EQ(menu.get_len(), 3);
     EXPECT_STREQ(menu.get_str(0), "Open");
     EXPECT_STREQ(menu.get_str(1), "Save");
     EXPECT_STREQ(menu.get_str(2), "Exit");
 
     // widgets
-    const ujson::Arr& widgets = root.get_arr("widgets");
+    const ujson::Arr widgets = root.get_arr("widgets");
     ASSERT_EQ(widgets.get_len(), 2);
     {
-        const ujson::Obj& item = widgets.get_obj(0);
+        const ujson::Obj item = widgets.get_obj(0);
         EXPECT_STREQ(item.get_str("type"), "button");
         EXPECT_STREQ(item.get_str("name"), "OK");
     }
     {
-        const ujson::Obj& item = widgets.get_obj(1);
+        const ujson::Obj item = widgets.get_obj(1);
         EXPECT_STREQ(item.get_str("type"), "button");
         EXPECT_STREQ(item.get_str("name"), "Cancel");
     }
 
     // color_rgb
-    const ujson::Arr& color_rgb = root.get_arr("color_rgb");
+    const ujson::Arr color_rgb = root.get_arr("color_rgb");
     ASSERT_EQ(color_rgb.get_len(), 3);
     EXPECT_EQ(color_rgb.get_i32(0, 0, 255), 0);
     EXPECT_EQ(color_rgb.get_i32(1, 0, 255), 0);
     EXPECT_EQ(color_rgb.get_i32(2, 0, 255), 255);
+}
+
+TEST(obj, null)
+{
+    auto obj = ujson::Obj(nullptr);
+    EXPECT_EQ(obj.get_member_idx("absent", false), -1);
+    EXPECT_THROW(obj.get_member_idx("absent", true), ujson::ErrMemberNotFound);
+    EXPECT_THROW(obj.get_member_name(0), std::out_of_range);
+    EXPECT_THROW(obj.get_member("absent"), ujson::ErrMemberNotFound);
+    EXPECT_FALSE(obj.get_member_opt("absent").has_value());
+    EXPECT_THROW(obj.get_bool("absent"), ujson::ErrMemberNotFound);
+}
+
+TEST(val, null)
+{
+    auto val = ujson::Val(nullptr);
+    EXPECT_FALSE(val.has_value());
+    EXPECT_EQ(val.get_type(), ujson::vtNone);
+    EXPECT_EQ(val.get_idx(), -1);
+    EXPECT_STREQ(val.get_name(), "");
+    EXPECT_EQ(val.get_line(), 0);
+    EXPECT_FALSE(val.is_num());
+    EXPECT_NO_THROW(val.reject_unknown_members());
+    EXPECT_NO_THROW(val.ignore_members());
 }
 
 TEST(val, get_line)
@@ -577,17 +621,17 @@ TEST(val, get_line)
 
     ujson::Json json;
     const uint32_t options = ujson::optDefault | ujson::optLineCommentC;
-    const ujson::Obj& root = json.parse(in_str, 0, options).as_obj();
-    auto& arr = root.get_arr("arr");
-    auto& obj = root.get_obj("obj");
+    const ujson::Obj root = json.parse(in_str, 0, options).as_obj();
+    auto arr = root.get_arr("arr");
+    auto obj = root.get_obj("obj");
 
     EXPECT_EQ(root.get_line(), 2);
-    EXPECT_EQ(root.get_member("num")->get_line(), 3);
+    EXPECT_EQ(root.get_member("num").get_line(), 3);
     EXPECT_EQ(arr.get_line(), 5);
     EXPECT_EQ(arr.get_element(0).get_line(), 6);
     EXPECT_EQ(arr.get_element(1).get_line(), 7);
     EXPECT_EQ(obj.get_line(), 10);
-    EXPECT_EQ(obj.get_member("foo")->get_line(), 11);
+    EXPECT_EQ(obj.get_member("foo").get_line(), 11);
 }
 
 TEST(val, reject_unknown_member)
@@ -603,7 +647,7 @@ TEST(val, reject_unknown_member)
     })";
     ujson::Json json;
 
-    const ujson::Obj& root = json.parse(in_str).as_obj();
+    const ujson::Obj root = json.parse(in_str).as_obj();
 
     root.get_obj("ignore").ignore_members();
     EXPECT_ERR(root.reject_unknown_members(), ujson::ErrUnknownMember, 2);
@@ -611,7 +655,7 @@ TEST(val, reject_unknown_member)
     root.get_i32("num");
     EXPECT_ERR(root.reject_unknown_members(), ujson::ErrUnknownMember, 3);
 
-    auto& arr = root.get_arr("arr");
+    auto arr = root.get_arr("arr");
     EXPECT_ERR(root.reject_unknown_members(), ujson::ErrUnknownMember, 5);
 
     arr.get_obj(1).get_i32("foo");
@@ -679,6 +723,47 @@ TEST(json, nested_level)
         }
         EXPECT_THROW(json.parse(s.c_str()), ujson::ErrSyntax);
     }
+}
+
+TEST(json, move)
+{
+    // Move construction: Val obtained before the move stays valid
+    // afterward, since only ownership transfers -- the underlying
+    // parsed tree itself never moves.
+    ujson::Json a;
+    auto val = a.parse(R"({"x": "hello"})").as_obj();
+    ujson::Json b(std::move(a));
+    EXPECT_STREQ(val.get_str("x"), "hello");
+
+    // The moved-from 'a' must be left in a valid, reusable state --
+    // same as a freshly default-constructed Json.
+    EXPECT_EQ(a.parse(R"({"y": 7})").as_obj().get_i32("y"), 7);
+
+    // Move assignment: same guarantee -- a pre-assignment Val stays valid.
+    ujson::Json c, d;
+    val         = c.parse(R"({"x": "hello"})").as_obj();
+    std::ignore = d.parse(R"({"y": 2})");
+    d = std::move(c);
+    EXPECT_STREQ(val.get_str("x"), "hello");
+    EXPECT_EQ(d.parse(R"({"z": 3})").as_obj().get_i32("z"), 3); // d is fully usable afterward
+
+    // Self-move-assignment must not corrupt state or crash.
+    ujson::Json e;
+    val = e.parse(R"({"x": "hello"})").as_obj();
+    ujson::Json* self = &e;
+    e = std::move(*self);
+    EXPECT_STREQ(val.get_str("x"), "hello");
+
+    // The actual motivating use case: Json must be storable in a
+    // standard container, which requires a working move (copy is
+    // intentionally deleted).
+    std::vector<ujson::Json> jsons;
+    jsons.emplace_back();
+    val = jsons.back().parse(R"({"x": "hello"})").as_obj();
+    for (int i = 0; i < 8; i++) {
+        jsons.emplace_back(); // forces reallocation, exercising the move path
+    }
+    EXPECT_STREQ(val.get_str("x"), "hello"); // survives the reallocation
 }
 
 int main(int argc, char **argv) {
